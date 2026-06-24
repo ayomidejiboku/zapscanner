@@ -1,31 +1,42 @@
-name: zap-scan
+
+name: Semgrep Static Scan
 
 on:
   push:
-    branches:
-      - main
+  pull_request:
 
 permissions:
   contents: read
-  actions: write
+  security-events: write
+  actions: read
 
 jobs:
-  zapscan:
+  semgrep:
     runs-on: ubuntu-latest
+    container: semgrep/semgrep:latest
+
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Run ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.10.0
-        with:
-          target: "https://example.com"
-          cmd_options: "-a"
-          allow_issue_writing: false
+      - name: Run Semgrep
+        run: |
+          semgrep scan \
+            --config p/ci \
+            --config p/security-audit \
+            --config p/secrets \
+            --verbose \
+            --max-target-bytes 0 \
+            --no-git-ignore \
+            --metrics off \
+            --sarif --output semgrep.sarif
 
-      - name: Upload ZAP HTML Report
-        uses: actions/upload-artifact@v4
+      - name: Upload SARIF as artifact
+        uses: actions/upload-artifact@v5
         with:
-          name: zapscan
-          path: report.html
+          name: semgrep-sarif
+          path: semgrep.sarif
+
+
